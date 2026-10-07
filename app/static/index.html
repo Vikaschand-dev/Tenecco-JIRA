@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tenecco</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>Tenecco</h1>
+    <div class="topbar-right">
+      <select id="site-select" hidden aria-label="Jira site"></select>
+      <span id="conn-status" class="pill">Checking…</span>
+      <a id="connect-btn" class="btn primary" href="/oauth/connect" hidden>Connect Jira</a>
+      <button id="disconnect-btn" class="btn" hidden>Disconnect</button>
+    </div>
+  </header>
+
+  <main id="app" hidden>
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-tab="board">Board</button>
+      <button class="tab" data-tab="issues">Issues</button>
+      <button class="tab" data-tab="create">Create issue</button>
+      <button class="tab" data-tab="sync">Webhook sync</button>
+    </nav>
+
+    <!-- Board -->
+    <section id="tab-board" class="tab-panel board-panel">
+      <div class="board-toolbar">
+        <select id="b-project" aria-label="Project"></select>
+        <input id="b-search" type="search" placeholder="Search this board">
+        <select id="b-assignee" aria-label="Assignee filter"></select>
+        <label class="check"><input type="checkbox" id="b-subtasks" checked> Sub-tasks</label>
+        <span class="spacer"></span>
+        <span id="b-updated" class="muted small-text"></span>
+        <button id="b-refresh" class="btn">Refresh</button>
+        <button id="b-create" class="btn primary">+ Create</button>
+      </div>
+      <div id="board" class="board" aria-live="polite"></div>
+    </section>
+
+    <!-- Issues list -->
+    <section id="tab-issues" class="tab-panel" hidden>
+      <div class="col">
+        <form id="search-form" class="row">
+          <select id="search-project" aria-label="Project"></select>
+          <input id="search-jql" placeholder="Optional JQL, e.g. status != Done ORDER BY updated DESC">
+          <button class="btn primary">Search</button>
+        </form>
+        <ul id="issue-list" class="issue-list"></ul>
+        <button id="load-more" class="btn" hidden>Load more</button>
+      </div>
+    </section>
+
+    <!-- Create -->
+    <section id="tab-create" class="tab-panel" hidden>
+      <form id="create-form" class="stack narrow col">
+        <div class="row wrap">
+          <label class="grow">Project <select id="c-project" required></select></label>
+          <label class="grow">Issue type <select id="c-type" required></select></label>
+          <label class="grow">Priority <select id="c-priority"></select></label>
+        </div>
+        <label>Summary <input id="c-summary" required maxlength="255"></label>
+        <label>Description <textarea id="c-description" rows="6"></textarea></label>
+        <label>Labels <input id="c-labels" placeholder="comma,separated"></label>
+        <button class="btn primary">Create issue</button>
+      </form>
+    </section>
+
+    <!-- Sync -->
+    <section id="tab-sync" class="tab-panel" hidden>
+      <div class="layout">
+        <div class="col">
+          <h3>Webhook subscriptions</h3>
+          <p class="muted">Jira pushes changes to <code id="hook-url"></code>. Subscriptions auto-refresh before their 30-day expiry. Requires a public HTTPS address (e.g. ngrok).</p>
+          <form id="hook-form" class="row">
+            <input id="hook-jql" placeholder="project = APLDTT" required>
+            <button class="btn primary">Subscribe</button>
+          </form>
+          <ul id="hooks" class="plain-list"></ul>
+          <button id="hook-refresh" class="btn small">Refresh expiry now</button>
+
+          <h3>Synced issues</h3>
+          <table class="table">
+            <thead><tr><th>Key</th><th>Summary</th><th>Status</th><th>Assignee</th></tr></thead>
+            <tbody id="synced"></tbody>
+          </table>
+        </div>
+        <div class="col">
+          <h3>Live events <span id="live-dot" class="dot"></span></h3>
+          <ul id="events" class="events"></ul>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Issue detail drawer (shared by Board and Issues) -->
+  <div id="drawer-backdrop" class="drawer-backdrop" hidden></div>
+  <aside id="detail" class="drawer" hidden aria-label="Issue details">
+    <div class="detail-head">
+      <a id="d-key" target="_blank" rel="noopener"></a>
+      <span id="d-parent" class="muted"></span>
+      <span id="d-status" class="pill"></span>
+      <span id="d-type" class="muted"></span>
+      <span class="spacer"></span>
+      <button id="d-delete" class="btn danger small">Delete</button>
+      <button id="d-close" class="btn small" aria-label="Close">✕</button>
+    </div>
+
+    <form id="edit-form" class="stack">
+      <label>Summary <input id="d-summary" required></label>
+      <label>Description <textarea id="d-description" rows="6"></textarea></label>
+      <div class="row">
+        <label class="grow">Priority <select id="d-priority"></select></label>
+        <label class="grow">Labels <input id="d-labels" placeholder="comma,separated"></label>
+      </div>
+      <button class="btn primary">Save changes</button>
+    </form>
+
+    <h3>Status</h3>
+    <div class="row">
+      <select id="d-transition"></select>
+      <button id="d-transition-btn" class="btn">Change status</button>
+    </div>
+
+    <h3>Assignee <span id="d-assignee" class="muted"></span></h3>
+    <div class="row">
+      <input id="d-user-q" placeholder="Search users…">
+      <select id="d-user"></select>
+      <button id="d-assign-btn" class="btn">Assign</button>
+    </div>
+
+    <h3>Comments</h3>
+    <form id="comment-form" class="row">
+      <input id="comment-body" placeholder="Add a comment…" required>
+      <button class="btn">Post</button>
+    </form>
+    <ul id="comments" class="comments"></ul>
+  </aside>
+
+  <section id="welcome" class="welcome" hidden>
+    <h2>Connect your Jira Cloud account</h2>
+    <p>Create, update, transition, assign and comment on Jira issues from this platform, and keep them in sync with webhooks.</p>
+    <a class="btn primary" href="/oauth/connect">Connect Jira</a>
+  </section>
+
+  <div id="toast" class="toast" hidden></div>
+  <script src="/static/app.js"></script>
+</body>
+</html>
