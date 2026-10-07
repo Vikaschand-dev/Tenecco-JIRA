@@ -5,6 +5,7 @@ pydantic>=2.7
 pydantic-settings>=2.3
 sqlalchemy[asyncio]>=2.0
 aiosqlite>=0.20
+asyncpg>=0.29
 cryptography>=42
 PyJWT>=2.8
 itsdangerous>=2.2

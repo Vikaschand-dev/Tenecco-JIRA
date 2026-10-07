@@ -85,7 +85,7 @@ class WebhookEvent(Base):
     payload: Mapped[dict] = mapped_column(JSON)
 
 
-engine = create_async_engine(get_settings().database_url)
+engine = create_async_engine(get_settings().async_database_url, pool_pre_ping=True)
 SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
 

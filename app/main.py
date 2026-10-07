@@ -31,6 +31,10 @@ STATIC_DIR = Path(__file__).parent / "static"
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     await init_db()
+    if settings.serverless:
+        # No long-lived process on Vercel; webhooks are refreshed by Vercel Cron instead.
+        yield
+        return
     task = asyncio.create_task(webhook_refresh_loop())
     yield
     task.cancel()

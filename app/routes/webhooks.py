@@ -11,6 +11,7 @@ from app.config import get_settings
 from app.db import AsyncSession, JiraSite, SyncedIssue, WebhookEvent, WebhookRegistration, get_db
 from app.deps import get_jira
 from app.events import bus
+from app.scheduler import refresh_expiring_webhooks
 from app.jira_client import JiraClient
 from app.schemas import WebhookSubscribe
 from app.sync import default_webhook_expiry, handle_jira_event, parse_jira_datetime
@@ -18,6 +19,17 @@ from app.sync import default_webhook_expiry, handle_jira_event, parse_jira_datet
 log = logging.getLogger(__name__)
 
 router = APIRouter(tags=["webhooks"])
+
+
+# ---------------------------------------------------------------- cron (called by Vercel Cron)
+
+
+@router.get("/cron/refresh-webhooks", include_in_schema=False)
+async def cron_refresh_webhooks(request: Request):
+    secret = get_settings().cron_secret
+    if not secret or request.headers.get("Authorization") != f"Bearer {secret}":
+        raise HTTPException(401, "Unauthorized")
+    return {"refreshed": await refresh_expiring_webhooks()}
 
 
 # ---------------------------------------------------------------- receiver (called by Jira)

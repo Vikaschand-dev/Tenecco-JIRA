@@ -1,0 +1,3 @@
+{
+  "crons": [{ "path": "/cron/refresh-webhooks", "schedule": "0 3 * * *" }]
+}
